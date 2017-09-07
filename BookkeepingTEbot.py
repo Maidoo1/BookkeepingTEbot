@@ -1,4 +1,3 @@
-import os
 import telebot
 
 tb_token = '428621375:AAHApm2gZZ0sdvR6PI2wce60_WDwnaYgOVw'
