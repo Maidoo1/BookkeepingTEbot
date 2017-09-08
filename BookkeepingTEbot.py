@@ -19,24 +19,25 @@ class Bookkeeper:
         self.price = None
 
     @staticmethod
-    def register(id, name, phone):
-        # reg_dict = {id: [name, phone]}
-        #
-        # with open('users.txt', 'a') as file:
-        #         file.write(str(reg_dict) + '\n')
+    def register(user_id, user_name, phone):
         conn = sqlite3.connect('users.sqlite')
         c = conn.cursor()
-        # c.execute('''CREATE TABLE users (id int auto_increment primary key,name varchar, password varchar)''')
-        c.execute("INSERT INTO users (user_id, name, phone) VALUES ({},{},{})".format(id, name, phone))
+        c.execute('INSERT INTO users VALUES ({}, "{}", "{}")'.format(user_id, user_name, phone))
         conn.commit()
         c.close()
         conn.close()
 
     def add_purchase(self):
-        self.user_dict[self.user_id] = [self.name, self.item, self.price]
+        # self.user_dict[self.user_id] = [self.name, self.item, self.price]
+        # with open('bd.txt', 'a') as file:
+        #     file.write(str(self.user_dict) + '\n')
 
-        with open('bd.txt', 'a') as file:
-            file.write(str(self.user_dict) + '\n')
+        conn = sqlite3.connect('purchases.sqlite')
+        c = conn.cursor()
+        c.execute('INSERT INTO purchases VALUES("{}", "{}", "{}")'.format(self.name, self.item, self.price))
+        conn.commit()
+        c.close()
+        conn.close()
 
 
 global_dict = {}
@@ -57,13 +58,13 @@ def register(message):
 
 def add_name(message):
     global name
-    name = str(message.text)
+    name = message.text
     request = bot.send_message(message.chat.id, 'Введи номер телефона, к которому привязана карта')
     bot.register_next_step_handler(request, add_phone)
 
 
 def add_phone(message):
-    phone = str(message.text)
+    phone = message.text
     Bookkeeper.register(str(message.chat.id), str(name), str(phone))
     bot.send_message(message.chat.id, 'Закончено')
 
@@ -72,7 +73,7 @@ def add_phone(message):
 def add_purchase(message):
     global_dict[message.chat.id] = Bookkeeper()
 
-    global_dict[message.chat.id].user_id = str(message.chat.id)
+    global_dict[message.chat.id].user_id = message.chat.id
     global_dict[message.chat.id].name = str(message.from_user.first_name)
 
     request = bot.send_message(message.chat.id, 'Что ты купил, тварь?')
@@ -81,7 +82,7 @@ def add_purchase(message):
 
 def add_item(message):
     item = message.text
-    global_dict[message.chat.id].item = str(item)
+    global_dict[message.chat.id].item = item
 
     request = bot.send_message(message.chat.id, 'И сколько оно стоило?')
     bot.register_next_step_handler(request, add_price)
@@ -89,7 +90,7 @@ def add_item(message):
 
 def add_price(message):
     price = message.text
-    global_dict[message.chat.id].price = str(price)
+    global_dict[message.chat.id].price = price
     global_dict[message.chat.id].add_purchase()
 
     bot.send_message(message.chat.id, 'Закончено')
