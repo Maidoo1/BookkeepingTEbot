@@ -6,10 +6,6 @@ tb_token = '428621375:AAHApm2gZZ0sdvR6PI2wce60_WDwnaYgOVw'
 bot = telebot.TeleBot(tb_token)
 
 
-# @bot.message_handler(content_types='text')
-# def start(message):
-#     bot.send_message(message.chat.id, message.text)
-
 class Bookkeeper:
     def __init__(self):
         self.user_dict = {}
@@ -17,6 +13,15 @@ class Bookkeeper:
         self.name = None
         self.item = None
         self.price = None
+
+    @staticmethod
+    def finder(item):
+        conn = sqlite3.connect('purchases.sqlite')
+        c = conn.cursor()
+        a = c.execute('SELECT * FROM purchases WHERE item LIKE "{}"'.format(item))
+        print([i for i in a])
+        c.close()
+        conn.close()
 
     @staticmethod
     def register(user_id, user_name, phone):
@@ -28,10 +33,6 @@ class Bookkeeper:
         conn.close()
 
     def add_purchase(self):
-        # self.user_dict[self.user_id] = [self.name, self.item, self.price]
-        # with open('bd.txt', 'a') as file:
-        #     file.write(str(self.user_dict) + '\n')
-
         conn = sqlite3.connect('purchases.sqlite')
         c = conn.cursor()
         c.execute('INSERT INTO purchases VALUES("{}", "{}", "{}")'.format(self.name, self.item, self.price))
@@ -95,6 +96,17 @@ def add_price(message):
 
     bot.send_message(message.chat.id, 'Закончено')
 
+
+@bot.message_handler(commands=['find'])
+def find(message):
+    request = bot.send_message(message.chat.id, 'Что ты хочешь найти?')
+    bot.register_next_step_handler(request, finder)
+
+
+def finder(message):
+    item = str(message.text)
+    Bookkeeper.finder(item)
+    bot.send_message(message.chat.id, 'Закончено')
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)
