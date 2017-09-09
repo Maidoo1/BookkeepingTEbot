@@ -10,9 +10,15 @@ class Bookkeeper:
     def __init__(self):
         self.user_dict = {}
         self.user_id = None
-        self.name = None
+        self.user_name = None
+        self.phone = None
         self.item = None
         self.price = None
+
+    @staticmethod
+    def register_next_step(message, text, next_func):
+        request = bot.send_message(message.chat.id, text)
+        bot.register_next_step_handler(request, next_func)
 
     @staticmethod
     def finder(item):
@@ -23,11 +29,10 @@ class Bookkeeper:
         c.close()
         conn.close()
 
-    @staticmethod
-    def register(user_id, user_name, phone):
+    def register(self):
         conn = sqlite3.connect('users.sqlite')
         c = conn.cursor()
-        c.execute('INSERT INTO users VALUES ({}, "{}", "{}")'.format(user_id, user_name, phone))
+        c.execute('INSERT INTO users VALUES ({}, "{}", "{}")'.format(self.user_id, self.user_name, self.phone))
         conn.commit()
         c.close()
         conn.close()
@@ -35,13 +40,13 @@ class Bookkeeper:
     def add_purchase(self):
         conn = sqlite3.connect('purchases.sqlite')
         c = conn.cursor()
-        c.execute('INSERT INTO purchases VALUES("{}", "{}", "{}")'.format(self.name, self.item, self.price))
+        c.execute('INSERT INTO purchases VALUES("{}", "{}", "{}")'.format(self.user_name, self.item, self.price))
         conn.commit()
         c.close()
         conn.close()
 
 
-global_dict = {}
+user_dict = {}
 
 
 @bot.message_handler(commands=['start'])
@@ -53,60 +58,57 @@ def start(message):
 
 @bot.message_handler(commands=['register'])
 def register(message):
-    request = bot.send_message(message.chat.id, 'Какое название ты себе дашь?')
-    bot.register_next_step_handler(request, add_name)
+    user_dict[message.chat.id] = Bookkeeper()
+    user_dict[message.chat.id].user_id = message.chat.id
+    Bookkeeper.register_next_step(message, 'Какое название ты себе дашь?', add_name)
 
 
 def add_name(message):
-    global name
-    name = message.text
-    request = bot.send_message(message.chat.id, 'Введи номер телефона, к которому привязана карта')
-    bot.register_next_step_handler(request, add_phone)
+    user_dict[message.chat.id].user_name = str(message.text)
+    Bookkeeper.register_next_step(message, 'Введи номер телефона, к которому привязана карта', add_phone)
 
 
 def add_phone(message):
-    phone = message.text
-    Bookkeeper.register(str(message.chat.id), str(name), str(phone))
+    user_dict[message.chat.id].phone = str(message.text)
+    user_dict[message.chat.id].register()
     bot.send_message(message.chat.id, 'Закончено')
 
 
 @bot.message_handler(commands=['add_purchase'])
 def add_purchase(message):
-    global_dict[message.chat.id] = Bookkeeper()
+    user_dict[message.chat.id] = Bookkeeper()
 
-    global_dict[message.chat.id].user_id = message.chat.id
-    global_dict[message.chat.id].name = str(message.from_user.first_name)
+    user_dict[message.chat.id].user_id = message.chat.id
+    user_dict[message.chat.id].name = str(message.from_user.first_name)
 
-    request = bot.send_message(message.chat.id, 'Что ты купил, тварь?')
-    bot.register_next_step_handler(request, add_item)
+    Bookkeeper.register_next_step(message, 'Что ты купил, тварь?', add_item)
 
 
 def add_item(message):
     item = message.text
-    global_dict[message.chat.id].item = item
+    user_dict[message.chat.id].item = item
 
-    request = bot.send_message(message.chat.id, 'И сколько оно стоило?')
-    bot.register_next_step_handler(request, add_price)
+    Bookkeeper.register_next_step(message, 'И сколько оно стоило?', add_price)
 
 
 def add_price(message):
     price = message.text
-    global_dict[message.chat.id].price = price
-    global_dict[message.chat.id].add_purchase()
+    user_dict[message.chat.id].price = price
+    user_dict[message.chat.id].add_purchase()
 
     bot.send_message(message.chat.id, 'Закончено')
 
 
 @bot.message_handler(commands=['find'])
 def find(message):
-    request = bot.send_message(message.chat.id, 'Что ты хочешь найти?')
-    bot.register_next_step_handler(request, finder)
+    Bookkeeper.register_next_step(message, 'Что ты хочешь найти?', finder)
 
 
 def finder(message):
     item = str(message.text)
     Bookkeeper.finder(item)
     bot.send_message(message.chat.id, 'Закончено')
+
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)
