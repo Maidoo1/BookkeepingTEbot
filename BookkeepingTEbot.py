@@ -8,21 +8,16 @@ bot = telebot.TeleBot(tb_token)
 
 def decorator_creator(db):
     def db_decorator(func):
-        def db_connection(item):
-            connection = sqlite3.connect(str(db) + '.sqlite')
+        def db_connection(self):
+            connection = sqlite3.connect('%s.sqlite' % db)
             cursor = connection.cursor()
-            cursor.execute(func(item))
+            cursor.execute(func(self))
+            connection.commit()
             cursor.close()
             connection.close()
 
         return db_connection
-
     return db_decorator
-
-
-@decorator_creator('purchases')
-def finder(item):
-    return 'SELECT * FROM purchases WHERE item LIKE "{}"'.format(item)
 
 
 class Bookkeeper:
@@ -39,29 +34,21 @@ class Bookkeeper:
         request = bot.send_message(message.chat.id, text)
         bot.register_next_step_handler(request, next_func)
 
-    @staticmethod
-    def deleter(item):
-        conn = sqlite3.connect('purchases.sqlite')
-        c = conn.cursor()
-        c.execute('DELETE FROM purchases WHERE item = "{}"'.format(item))
-        c.close()
-        conn.close()
+    @decorator_creator('purchases')
+    def finder(self):
+        return 'SELECT * FROM purchases WHERE item LIKE "{}"'.format(self.item)
 
+    @decorator_creator('purchases')
+    def deleter(self):
+        return 'DELETE FROM purchases WHERE item = "{}"'.format(self.item)
+
+    @decorator_creator('users')
     def register(self):
-        conn = sqlite3.connect('users.sqlite')
-        c = conn.cursor()
-        c.execute('INSERT INTO users VALUES ({}, "{}", "{}")'.format(self.user_id, self.user_name, self.phone))
-        conn.commit()
-        c.close()
-        conn.close()
+        return 'INSERT INTO users VALUES ({}, "{}", "{}")'.format(self.user_id, self.user_name, self.phone)
 
+    @decorator_creator('purchases')
     def add_purchase(self):
-        conn = sqlite3.connect('purchases.sqlite')
-        c = conn.cursor()
-        c.execute('INSERT INTO purchases VALUES("{}", "{}", "{}")'.format(self.user_name, self.item, self.price))
-        conn.commit()
-        c.close()
-        conn.close()
+        return 'INSERT INTO purchases VALUES("{}", "{}", "{}")'.format(self.user_name, self.item, self.price)
 
 
 user_dict = {}
@@ -99,7 +86,7 @@ def add_purchase(message):
     user_dict[message.chat.id] = Bookkeeper()
 
     user_dict[message.chat.id].user_id = message.chat.id
-    user_dict[message.chat.id].name = str(message.from_user.first_name)
+    user_dict[message.chat.id].user_name = str(message.from_user.first_name)
 
     Bookkeeper.register_next_step(message, 'Что ты купил, тварь?', add_item)
 
@@ -122,24 +109,26 @@ def add_price(message):
 # Тестовая команда для поиска покупок в БД
 @bot.message_handler(commands=['find'])
 def find(message):
+    user_dict[message.chat.id] = Bookkeeper()
     Bookkeeper.register_next_step(message, 'Что ты хочешь найти?', find_anything)
 
 
 def find_anything(message):
-    item = str(message.text)
-    finder(item)
+    user_dict[message.chat.id].item = str(message.text)
+    user_dict[message.chat.id].finder()
     bot.send_message(message.chat.id, 'Закончено')
 
 
 # Тестовая команда для удаления покупок из БД
 @bot.message_handler(commands=['delete'])
 def delete(message):
+    user_dict[message.chat.id] = Bookkeeper()
     Bookkeeper.register_next_step(message, 'И что же ты захотел удалить?', deleter)
 
 
 def deleter(message):
-    item = str(message.text)
-    Bookkeeper.deleter(item)
+    user_dict[message.chat.id].item = str(message.text)
+    user_dict[message.chat.id].deleter()
     bot.send_message(message.chat.id, 'Закончено')
 
 
