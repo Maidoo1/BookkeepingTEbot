@@ -6,6 +6,25 @@ tb_token = '428621375:AAHApm2gZZ0sdvR6PI2wce60_WDwnaYgOVw'
 bot = telebot.TeleBot(tb_token)
 
 
+def decorator_creator(db):
+    def db_decorator(func):
+        def db_connection(item):
+            connection = sqlite3.connect(str(db) + '.sqlite')
+            cursor = connection.cursor()
+            cursor.execute(func(item))
+            cursor.close()
+            connection.close()
+
+        return db_connection
+
+    return db_decorator
+
+
+@decorator_creator('purchases')
+def finder(item):
+    return 'SELECT * FROM purchases WHERE item LIKE "{}"'.format(item)
+
+
 class Bookkeeper:
     def __init__(self):
         self.user_dict = {}
@@ -21,11 +40,10 @@ class Bookkeeper:
         bot.register_next_step_handler(request, next_func)
 
     @staticmethod
-    def finder(item):
+    def deleter(item):
         conn = sqlite3.connect('purchases.sqlite')
         c = conn.cursor()
-        a = c.execute('SELECT * FROM purchases WHERE item LIKE "{}"'.format(item))
-        print([i for i in a])
+        c.execute('DELETE FROM purchases WHERE item = "{}"'.format(item))
         c.close()
         conn.close()
 
@@ -49,13 +67,14 @@ class Bookkeeper:
 user_dict = {}
 
 
-@bot.message_handler(commands=['start'])
+@bot.message_handler(commands=['start', 'help'])
 def start(message):
     bot.send_message(message.chat.id, 'Список команд:\n'
                                       '/register - Зарегистрироваться в величайшей системе человечества\n'
                                       '/add_purchase - Добавить покупку\n')
 
 
+# Команда для ввода имени и номера телефона, привязанного к карте
 @bot.message_handler(commands=['register'])
 def register(message):
     user_dict[message.chat.id] = Bookkeeper()
@@ -74,6 +93,7 @@ def add_phone(message):
     bot.send_message(message.chat.id, 'Закончено')
 
 
+# Команда для добавления сделанной покупки в БД
 @bot.message_handler(commands=['add_purchase'])
 def add_purchase(message):
     user_dict[message.chat.id] = Bookkeeper()
@@ -99,14 +119,27 @@ def add_price(message):
     bot.send_message(message.chat.id, 'Закончено')
 
 
+# Тестовая команда для поиска покупок в БД
 @bot.message_handler(commands=['find'])
 def find(message):
-    Bookkeeper.register_next_step(message, 'Что ты хочешь найти?', finder)
+    Bookkeeper.register_next_step(message, 'Что ты хочешь найти?', find_anything)
 
 
-def finder(message):
+def find_anything(message):
     item = str(message.text)
-    Bookkeeper.finder(item)
+    finder(item)
+    bot.send_message(message.chat.id, 'Закончено')
+
+
+# Тестовая команда для удаления покупок из БД
+@bot.message_handler(commands=['delete'])
+def delete(message):
+    Bookkeeper.register_next_step(message, 'И что же ты захотел удалить?', deleter)
+
+
+def deleter(message):
+    item = str(message.text)
+    Bookkeeper.deleter(item)
     bot.send_message(message.chat.id, 'Закончено')
 
 
