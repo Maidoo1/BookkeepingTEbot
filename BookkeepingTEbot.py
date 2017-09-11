@@ -11,8 +11,10 @@ def decorator_creator(db):
         def db_connection(self):
             connection = sqlite3.connect('%s.sqlite' % db)
             cursor = connection.cursor()
+
             cursor.execute(func(self))
             connection.commit()
+
             cursor.close()
             connection.close()
 
@@ -51,9 +53,6 @@ class Bookkeeper:
         return 'INSERT INTO purchases VALUES("{}", "{}", "{}")'.format(self.user_name, self.item, self.price)
 
 
-user_dict = {}
-
-
 @bot.message_handler(commands=['start', 'help'])
 def start(message):
     bot.send_message(message.chat.id, 'Список команд:\n'
@@ -64,71 +63,57 @@ def start(message):
 # Команда для ввода имени и номера телефона, привязанного к карте
 @bot.message_handler(commands=['register'])
 def register(message):
-    user_dict[message.chat.id] = Bookkeeper()
-    user_dict[message.chat.id].user_id = message.chat.id
-    Bookkeeper.register_next_step(message, 'Какое название ты себе дашь?', add_name)
+    bookkeeper = Bookkeeper()
 
+    string = (str(message.text)).split()
 
-def add_name(message):
-    user_dict[message.chat.id].user_name = str(message.text)
-    Bookkeeper.register_next_step(message, 'Введи номер телефона, к которому привязана карта', add_phone)
+    bookkeeper.user_id = message.chat.id
+    bookkeeper.user_name = string[1]
+    bookkeeper.phone = string[2]
 
-
-def add_phone(message):
-    user_dict[message.chat.id].phone = str(message.text)
-    user_dict[message.chat.id].register()
+    bookkeeper.register()
     bot.send_message(message.chat.id, 'Закончено')
 
 
 # Команда для добавления сделанной покупки в БД
 @bot.message_handler(commands=['add_purchase'])
 def add_purchase(message):
-    user_dict[message.chat.id] = Bookkeeper()
+    bookkeeper = Bookkeeper()
 
-    user_dict[message.chat.id].user_id = message.chat.id
-    user_dict[message.chat.id].user_name = str(message.from_user.first_name)
+    string = str(message.text).split()
 
-    Bookkeeper.register_next_step(message, 'Что ты купил, тварь?', add_item)
+    bookkeeper.user_id = message.chat.id
+    bookkeeper.user_name = str(message.from_user.first_name)
+    bookkeeper.item = string[1]
+    bookkeeper.price = string[2]
 
-
-def add_item(message):
-    item = message.text
-    user_dict[message.chat.id].item = item
-
-    Bookkeeper.register_next_step(message, 'И сколько оно стоило?', add_price)
-
-
-def add_price(message):
-    price = message.text
-    user_dict[message.chat.id].price = price
-    user_dict[message.chat.id].add_purchase()
-
+    bookkeeper.add_purchase()
     bot.send_message(message.chat.id, 'Закончено')
 
 
 # Тестовая команда для поиска покупок в БД
 @bot.message_handler(commands=['find'])
 def find(message):
-    user_dict[message.chat.id] = Bookkeeper()
-    Bookkeeper.register_next_step(message, 'Что ты хочешь найти?', find_anything)
+    bookkeeper = Bookkeeper()
 
+    string = str(message.text).split()
 
-def find_anything(message):
-    user_dict[message.chat.id].item = str(message.text)
-    user_dict[message.chat.id].finder()
+    bookkeeper.item = string[1]
+
+    bookkeeper.finder()
     bot.send_message(message.chat.id, 'Закончено')
 
 
 # Тестовая команда для удаления покупок из БД
 @bot.message_handler(commands=['delete'])
 def delete(message):
-    user_dict[message.chat.id] = Bookkeeper()
-    Bookkeeper.register_next_step(message, 'И что же ты захотел удалить?', deleter)
+    bookkeeper = Bookkeeper()
 
+    string = str(message.text).split()
 
-def deleter(message):
-    user_dict[message.chat.id].item = str(message.text)
-    user_dict[message.chat.id].deleter()
+    bookkeeper.item = string[1]
+
+    bookkeeper.deleter()
     bot.send_message(message.chat.id, 'Закончено')
 
 
