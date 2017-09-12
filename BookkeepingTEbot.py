@@ -30,11 +30,23 @@ class Bookkeeper:
         self.phone = None
         self.item = None
         self.price = None
+        self.names = []
+        self.feedback = None
 
     @staticmethod
     def register_next_step(message, text, next_func):
         request = bot.send_message(message.chat.id, text)
         bot.register_next_step_handler(request, next_func)
+
+    def is_register(self):
+        connection = sqlite3.connect('users.sqlite')
+        cursor = connection.cursor()
+        self.feedback = cursor.execute('SELECT name FROM users WHERE user_id LIKE "{}"'.format(self.user_id))
+        a = [i for i in self.feedback]
+        print(a[0][0])
+        connection.commit()
+        cursor.close()
+        connection.close()
 
     @decorator_creator('purchases')
     def finder(self):
@@ -50,22 +62,24 @@ class Bookkeeper:
 
     @decorator_creator('purchases')
     def add_purchase(self):
-        return 'INSERT INTO purchases VALUES("{}", "{}", "{}")'.format(self.user_name, self.item, self.price)
+        return 'INSERT INTO purchases VALUES("{}", "{}", "{}", "{}", "{}")'.format(
+            self.user_name, self.item, self.price, self.names[0], self.names[1])
 
 
 @bot.message_handler(commands=['start', 'help'])
 def start(message):
-    bot.send_message(message.chat.id, 'Список команд:\n'
-                                      '/register - Зарегистрироваться в величайшей системе человечества\n'
-                                      '/add_purchase - Добавить покупку\n')
+    bot.send_message(message.chat.id, 'Примеры команд:\n'
+                                      '/register Король 8-800-555-35-35 - Зарегистрироваться в величайшей системе '
+                                      'человечества под именем Король с номером телефона 8-800-555-35-35\n'
+                                      '/purchase Вафелька 700 - Добавить покупку Вафелька ценой 700 рублей\n')
 
 
 # Команда для ввода имени и номера телефона, привязанного к карте
-@bot.message_handler(commands=['register'])
+@bot.message_handler(commands=['register', 'регистрация'])
 def register(message):
-    bookkeeper = Bookkeeper()
-
     string = (str(message.text)).split()
+
+    bookkeeper = Bookkeeper()
 
     bookkeeper.user_id = message.chat.id
     bookkeeper.user_name = string[1]
@@ -76,16 +90,19 @@ def register(message):
 
 
 # Команда для добавления сделанной покупки в БД
-@bot.message_handler(commands=['add_purchase'])
+@bot.message_handler(commands=['purchase', 'покупка'])
 def add_purchase(message):
-    bookkeeper = Bookkeeper()
-
     string = str(message.text).split()
 
+    bookkeeper = Bookkeeper()
+
     bookkeeper.user_id = message.chat.id
+    bookkeeper.is_register()
     bookkeeper.user_name = str(message.from_user.first_name)
     bookkeeper.item = string[1]
     bookkeeper.price = string[2]
+    bookkeeper.names.append(string[3])
+    bookkeeper.names.append(string[4])
 
     bookkeeper.add_purchase()
     bot.send_message(message.chat.id, 'Закончено')
@@ -94,9 +111,9 @@ def add_purchase(message):
 # Тестовая команда для поиска покупок в БД
 @bot.message_handler(commands=['find'])
 def find(message):
-    bookkeeper = Bookkeeper()
-
     string = str(message.text).split()
+
+    bookkeeper = Bookkeeper()
 
     bookkeeper.item = string[1]
 
@@ -107,9 +124,9 @@ def find(message):
 # Тестовая команда для удаления покупок из БД
 @bot.message_handler(commands=['delete'])
 def delete(message):
-    bookkeeper = Bookkeeper()
-
     string = str(message.text).split()
+
+    bookkeeper = Bookkeeper()
 
     bookkeeper.item = string[1]
 
