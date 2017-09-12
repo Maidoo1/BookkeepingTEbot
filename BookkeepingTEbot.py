@@ -12,7 +12,9 @@ def decorator_creator(db):
             connection = sqlite3.connect('%s.sqlite' % db)
             cursor = connection.cursor()
 
-            cursor.execute(func(self))
+            db_command = cursor.execute(func(self))
+            self.db_feedback = [i for i in db_command]
+
             connection.commit()
 
             cursor.close()
@@ -31,22 +33,20 @@ class Bookkeeper:
         self.item = None
         self.price = None
         self.names = []
-        self.feedback = None
+        self.db_feedback = None
 
     @staticmethod
     def register_next_step(message, text, next_func):
         request = bot.send_message(message.chat.id, text)
         bot.register_next_step_handler(request, next_func)
 
+    @decorator_creator('users')
+    def is_register_command(self):
+        return 'SELECT name FROM users WHERE user_id LIKE "{}"'.format(self.user_id)
+
     def is_register(self):
-        connection = sqlite3.connect('users.sqlite')
-        cursor = connection.cursor()
-        self.feedback = cursor.execute('SELECT name FROM users WHERE user_id LIKE "{}"'.format(self.user_id))
-        a = [i for i in self.feedback]
-        print(a[0][0])
-        connection.commit()
-        cursor.close()
-        connection.close()
+        self.is_register_command()
+        print(self.db_feedback[0][0])
 
     @decorator_creator('purchases')
     def finder(self):
