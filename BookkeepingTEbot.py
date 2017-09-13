@@ -46,7 +46,18 @@ class Bookkeeper:
 
     def is_register(self):
         self.is_register_command()
-        print(self.db_feedback[0][0])
+        self.names.append(self.db_feedback[0][0])
+
+    @decorator_creator('users')
+    def other_users_command(self):
+        return 'SELECT user_id FROM users WHERE user_id NOT LIKE "{}"'.format(self.user_id)
+
+    def other_users(self):
+        self.other_users_command()
+        users = [i[0] for i in self.db_feedback]
+        for i in users:
+            self.user_id = i
+            self.is_register()
 
     @decorator_creator('purchases')
     def finder(self):
@@ -63,7 +74,7 @@ class Bookkeeper:
     @decorator_creator('purchases')
     def add_purchase(self):
         return 'INSERT INTO purchases VALUES("{}", "{}", "{}", "{}", "{}")'.format(
-            self.user_name, self.item, self.price, self.names[0], self.names[1])
+            self.names[0], self.item, self.price, self.names[1], self.names[2])
 
 
 @bot.message_handler(commands=['start', 'help'])
@@ -72,6 +83,13 @@ def start(message):
                                       '/register Король 8-800-555-35-35 - Зарегистрироваться в величайшей системе '
                                       'человечества под именем Король с номером телефона 8-800-555-35-35\n'
                                       '/purchase Вафелька 700 - Добавить покупку Вафелька ценой 700 рублей\n')
+
+
+@bot.message_handler(commands=['test'])
+def test(message):
+    bookkeeper = Bookkeeper()
+    bookkeeper.user_id = message.chat.id
+    bookkeeper.other_users()
 
 
 # Команда для ввода имени и номера телефона, привязанного к карте
@@ -98,11 +116,15 @@ def add_purchase(message):
 
     bookkeeper.user_id = message.chat.id
     bookkeeper.is_register()
-    bookkeeper.user_name = str(message.from_user.first_name)
     bookkeeper.item = string[1]
     bookkeeper.price = string[2]
-    bookkeeper.names.append(string[3])
-    bookkeeper.names.append(string[4])
+
+    try:
+        bookkeeper.names.append(string[3])
+        bookkeeper.names.append('None')
+
+    except IndexError:
+        bookkeeper.other_users()
 
     bookkeeper.add_purchase()
     bot.send_message(message.chat.id, 'Закончено')
