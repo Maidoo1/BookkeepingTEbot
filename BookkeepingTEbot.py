@@ -43,13 +43,12 @@ class Bookkeeper:
     def add_purchase(self):
         self.debt = int(self.price)//(len(self.names)+1)
 
-        if len(self.names) <= 2:
-            self.names.append('None')
-
         db = database.DataBase()
         db.connect('purchases')
-        db.db_command('INSERT INTO purchases VALUES ("{}", "{}", "{}", "{}", "{}", "{}", "{}")'.format(
-            self.user_name, self.item, self.price, self.names[0], self.debt, self.names[1], self.debt))
+
+        for i in self.names:
+            db.db_command('INSERT INTO purchases VALUES ("{}", "{}", "{}", "{}", "{}")'.format(
+                self.user_name, self.item, self.price, i, self.debt))
 
         try:
             answer = database.debt_sender()
@@ -97,6 +96,7 @@ class Bookkeeper:
         self.db_feedback = [i for i in db.feedback]
         db.disconnect()
 
+    # Not ready for using
     def deleter(self):
         db = database.DataBase()
         db.connect('purchases')
@@ -166,7 +166,7 @@ def add_purchase(message):
     bot.send_message(message.chat.id, 'Закончено')
 
 
-# Тестовая команда для поиска покупок в БД
+# Команда для поиска людей в БД
 @bot.message_handler(commands=['people', 'пацаны'])
 def find(message):
     bookkeeper = Bookkeeper()
@@ -182,7 +182,7 @@ def find(message):
 
 
 # Тестовая команда для удаления покупок из БД
-@bot.message_handler(commands=['delete'])
+@bot.message_handler(commands=['delete', 'прощаю'])
 def delete(message):
     string = str(message.text).split()
 
