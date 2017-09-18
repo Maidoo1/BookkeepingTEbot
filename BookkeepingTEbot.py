@@ -32,12 +32,36 @@ class Bookkeeper:
         self.item = None
         self.price = None
         self.names = []
+        self.debt = None
         self.db_feedback = None
 
     @staticmethod
     def register_next_step(message, text, next_func):
         request = bot.send_message(message.chat.id, text)
         bot.register_next_step_handler(request, next_func)
+
+    def add_purchase(self):
+        db = database.DataBase()
+
+        if 'None' not in self.names:
+            self.debt = int(self.price)//(len(self.names)+1)
+        else:
+            self.debt = int(self.price)//len(self.names)
+
+        db.connect('purchases')
+        db.db_command('INSERT INTO purchases VALUES ("{}", "{}", "{}", "{}", "{}", "{}", "{}")'.format(
+            self.user_name, self.item, self.price, self.names[0], self.debt, self.names[1], self.debt))
+
+        try:
+            [bot.send_message(i, 'Хэлов поц. Ты попал на бабки!\n'
+                                 'Некто по именем {} купил {}.\n'
+                                 'И эта параша стоила целых {} рубасов!\n'
+                                 'Отдай ему, плес, {} рублей, братан.'.format(self.user_name, self.item, self.price,
+                                                                              self.debt)) for i in self.names]
+        except telebot.apihelper.ApiException:
+            pass
+
+        db.disconnect()
 
     def register(self):
         db = database.DataBase()
@@ -51,13 +75,12 @@ class Bookkeeper:
         db.db_command('SELECT name FROM users WHERE user_id LIKE "{}"'.format(self.user_id))
         self.db_feedback = [i for i in db.feedback]
         self.user_name = self.db_feedback[0][0]
-        self.names.append(self.user_name)
         db.disconnect()
 
     def other_users(self):
         db = database.DataBase()
         db.connect('users')
-        db.db_command('SELECT name FROM users WHERE user_id NOT LIKE "{}"'.format(self.user_id))
+        db.db_command('SELECT user_id FROM users WHERE user_id NOT LIKE "{}"'.format(self.user_id))
         self.db_feedback = db.feedback
         [self.names.append(i[0]) for i in self.db_feedback]
         db.disconnect()
@@ -74,28 +97,13 @@ class Bookkeeper:
         db.db_command('DELETE FROM purchases WHERE item = "{}"'.format(self.item))
         db.disconnect()
 
-    def add_purchase(self):
+    def find_id(self, user_name):
         db = database.DataBase()
-        db.connect('purchases')
-        db.db_command('INSERT INTO purchases VALUES ("{}", "{}", "{}", "{}", "{}")'.format(
-            self.names[0], self.item, self.price, self.names[1], self.names[2]))
+        db.connect('users')
+        db.db_command('SELECT user_id FROM users WHERE name LIKE "{}"'.format(user_name))
+        self.db_feedback = db.feedback
+        [self.names.append(i[0]) for i in self.db_feedback]
         db.disconnect()
-    #
-    # @decorator_creator('users')
-    # def find_id(self):
-    #     return 'SELECT user_id FROM users WHERE name LIKE "{}"'.format(self.user_name)
-    #
-    # def purchase(self):
-    #     self.add_purchase()
-    #     for i in self.names[1:]:
-    #         self.user_name = i
-    #         self.find_id()
-    #         try:
-    #             bot.send_message(self.db_feedback[0][0], 'Теперь ты должен бабло персонажу под именем: {}, в размере {}'
-    #                                                  ' рублей, потому что он купил {}'.format(self.names[0],
-    #                                                   int(self.price)//(len(self.names)-1), self.item))
-    #         except IndexError:
-    #             pass
 
 
 @bot.message_handler(commands=['start', 'help'])
@@ -144,7 +152,7 @@ def add_purchase(message):
     bookkeeper.price = string[2]
 
     try:
-        bookkeeper.names.append(string[3])
+        bookkeeper.find_id(string[3])
         bookkeeper.names.append('None')
 
     except IndexError:
