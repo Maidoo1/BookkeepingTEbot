@@ -1,6 +1,7 @@
 import sqlite3
 from random import randint
 
+
 class DataBase:
     def __init__(self):
         self.connection = None

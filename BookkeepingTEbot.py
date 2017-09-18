@@ -1,5 +1,7 @@
 import telebot
 import database
+import json
+
 
 tb_token = '428621375:AAHApm2gZZ0sdvR6PI2wce60_WDwnaYgOVw'
 
@@ -39,6 +41,12 @@ class Bookkeeper:
     def register_next_step(message, text, next_func):
         request = bot.send_message(message.chat.id, text)
         bot.register_next_step_handler(request, next_func)
+
+    @staticmethod
+    def send_message(text):
+        with open('texts.json', 'r', encoding='utf-8') as json_file:
+            file = json.load(json_file)
+            return file[text]
 
     def add_purchase(self):
         self.debt = int(self.price)//(len(self.names)+1)
@@ -106,19 +114,7 @@ class Bookkeeper:
 
 @bot.message_handler(commands=['start', 'help'])
 def start(message):
-    bot.send_message(message.chat.id, 'Примеры команд:\n'
-                                      'Регистрация:\n'
-                                      '/register = /регистрация\n'
-                                      '/register Король 8-800-555-35-35 - Зарегистрироваться в величайшей системе '
-                                      'человечества под именем Король с номером телефона 8-800-555-35-35\n'
-                                      'Покупка:\n'
-                                      '/purchase = /покупка\n'
-                                      '/purchase Вафелька 700 - Добавить покупку Вафелька ценой 700 рублей,'
-                                      'деньги должны будут все соседи\n'
-                                      '/purchase Вафелька 700 Король - Добавить покупку Вафелька ценой 700 рублей,'
-                                      'деньги должен будет только Король\n'
-                                      'Участники программы:\n'
-                                      '/people = /пацаны\n')
+    bot.send_message(message.chat.id, Bookkeeper.send_message('start'))
 
 
 @bot.message_handler(commands=['test'])
