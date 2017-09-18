@@ -41,32 +41,31 @@ class Bookkeeper:
         bot.register_next_step_handler(request, next_func)
 
     def add_purchase(self):
+        self.debt = int(self.price)//(len(self.names)+1)
+
+        if len(self.names) <= 2:
+            self.names.append('None')
+
         db = database.DataBase()
-
-        if 'None' not in self.names:
-            self.debt = int(self.price)//(len(self.names)+1)
-        else:
-            self.debt = int(self.price)//len(self.names)
-
         db.connect('purchases')
         db.db_command('INSERT INTO purchases VALUES ("{}", "{}", "{}", "{}", "{}", "{}", "{}")'.format(
             self.user_name, self.item, self.price, self.names[0], self.debt, self.names[1], self.debt))
 
         try:
-            [bot.send_message(i, 'Хэлов поц. Ты попал на бабки!\n'
-                                 'Некто по именем {} купил {}.\n'
-                                 'И эта параша стоила целых {} рубасов!\n'
-                                 'Отдай ему, плес, {} рублей, братан.'.format(self.user_name, self.item, self.price,
-                                                                              self.debt)) for i in self.names]
+            answer = database.debt_sender()
+            [bot.send_message(i, answer.format(self.user_name, self.item, self.price, self.debt)) for i in self.names]
+
         except telebot.apihelper.ApiException:
             pass
 
         db.disconnect()
 
-    def register(self):
+    def find_id(self, user_name):
         db = database.DataBase()
         db.connect('users')
-        db.db_command('INSERT INTO users VALUES ("{}", "{}", "{}")'.format(self.user_id, self.user_name, self.phone))
+        db.db_command('SELECT user_id FROM users WHERE name LIKE "{}"'.format(user_name))
+        self.db_feedback = db.feedback
+        [self.names.append(i[0]) for i in self.db_feedback]
         db.disconnect()
 
     def is_register(self):
@@ -85,10 +84,17 @@ class Bookkeeper:
         [self.names.append(i[0]) for i in self.db_feedback]
         db.disconnect()
 
+    def register(self):
+        db = database.DataBase()
+        db.connect('users')
+        db.db_command('INSERT INTO users VALUES ("{}", "{}", "{}")'.format(self.user_id, self.user_name, self.phone))
+        db.disconnect()
+
     def finder(self):
         db = database.DataBase()
-        db.connect('purchases')
-        db.db_command('SELECT * FROM purchases WHERE item LIKE "{}"'.format(self.item))
+        db.connect('users')
+        db.db_command('SELECT name, phone FROM users WHERE user_id NOT LIKE "{}"'.format(self.user_id))
+        self.db_feedback = [i for i in db.feedback]
         db.disconnect()
 
     def deleter(self):
@@ -97,24 +103,22 @@ class Bookkeeper:
         db.db_command('DELETE FROM purchases WHERE item = "{}"'.format(self.item))
         db.disconnect()
 
-    def find_id(self, user_name):
-        db = database.DataBase()
-        db.connect('users')
-        db.db_command('SELECT user_id FROM users WHERE name LIKE "{}"'.format(user_name))
-        self.db_feedback = db.feedback
-        [self.names.append(i[0]) for i in self.db_feedback]
-        db.disconnect()
-
 
 @bot.message_handler(commands=['start', 'help'])
 def start(message):
     bot.send_message(message.chat.id, 'Примеры команд:\n'
+                                      'Регистрация:\n'
+                                      '/register = /регистрация\n'
                                       '/register Король 8-800-555-35-35 - Зарегистрироваться в величайшей системе '
                                       'человечества под именем Король с номером телефона 8-800-555-35-35\n'
+                                      'Покупка:\n'
+                                      '/purchase = /покупка\n'
                                       '/purchase Вафелька 700 - Добавить покупку Вафелька ценой 700 рублей,'
-                                      'деньги должны будут все соседи'
+                                      'деньги должны будут все соседи\n'
                                       '/purchase Вафелька 700 Король - Добавить покупку Вафелька ценой 700 рублей,'
-                                      'деньги должен будет только Король\n')
+                                      'деньги должен будет только Король\n'
+                                      'Участники программы:\n'
+                                      '/people = /пацаны\n')
 
 
 @bot.message_handler(commands=['test'])
@@ -152,8 +156,8 @@ def add_purchase(message):
     bookkeeper.price = string[2]
 
     try:
-        bookkeeper.find_id(string[3])
-        bookkeeper.names.append('None')
+        user_name = string[3]
+        bookkeeper.find_id(user_name)
 
     except IndexError:
         bookkeeper.other_users()
@@ -163,16 +167,18 @@ def add_purchase(message):
 
 
 # Тестовая команда для поиска покупок в БД
-@bot.message_handler(commands=['find'])
+@bot.message_handler(commands=['people', 'пацаны'])
 def find(message):
-    string = str(message.text).split()
-
     bookkeeper = Bookkeeper()
-
-    bookkeeper.item = string[1]
+    bookkeeper.user_id = message.chat.id
 
     bookkeeper.finder()
-    bot.send_message(message.chat.id, 'Закончено')
+
+    string = 'Вот те список пацанов с номерами:\n'
+    for i in bookkeeper.db_feedback:
+        string += '• ' + i[0] + ' - ' + i[1] + '\n'
+
+    bot.send_message(message.chat.id, string)
 
 
 # Тестовая команда для удаления покупок из БД
