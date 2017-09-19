@@ -1,6 +1,7 @@
 import telebot
 import database
 import json
+from random import randint
 
 
 tb_token = '428621375:AAHApm2gZZ0sdvR6PI2wce60_WDwnaYgOVw'
@@ -36,6 +37,7 @@ class Bookkeeper:
         self.names = []
         self.debt = None
         self.db_feedback = None
+        self.people = ''
 
     @staticmethod
     def register_next_step(message, text, next_func):
@@ -44,7 +46,7 @@ class Bookkeeper:
 
     @staticmethod
     def send_message(text):
-        with open('texts.json', 'r', encoding='utf-8') as json_file:
+        with open('text.json', 'r', encoding='utf-8') as json_file:
             file = json.load(json_file)
             return file[text]
 
@@ -59,8 +61,14 @@ class Bookkeeper:
                 self.user_name, self.item, self.price, i, self.debt))
 
         try:
-            answer = database.debt_sender()
-            [bot.send_message(i, answer.format(self.user_name, self.item, self.price, self.debt)) for i in self.names]
+            answer = Bookkeeper.send_message('collector')
+            random_num = str(randint(0, len(answer)-1))
+
+            [bot.send_message(i, answer[random_num].format(
+                self.user_name, self.item, self.price, self.debt))for i in self.names]
+
+            [bot.send_message(i, Bookkeeper.send_message('table').format(
+                self.user_name, self.item, self.price, self.debt, self.phone)) for i in self.names]
 
         except telebot.apihelper.ApiException:
             pass
@@ -78,9 +86,10 @@ class Bookkeeper:
     def is_register(self):
         db = database.DataBase()
         db.connect('users')
-        db.db_command('SELECT name FROM users WHERE user_id LIKE "{}"'.format(self.user_id))
+        db.db_command('SELECT name, phone FROM users WHERE user_id LIKE "{}"'.format(self.user_id))
         self.db_feedback = [i for i in db.feedback]
         self.user_name = self.db_feedback[0][0]
+        self.phone = self.db_feedback[0][1]
         db.disconnect()
 
     def other_users(self):
@@ -101,20 +110,36 @@ class Bookkeeper:
         db = database.DataBase()
         db.connect('users')
         db.db_command('SELECT name, phone FROM users WHERE user_id NOT LIKE "{}"'.format(self.user_id))
+
         self.db_feedback = [i for i in db.feedback]
+        for i in self.db_feedback:
+            self.people += '• ' + i[0] + ' - ' + i[1] + '\n'
+
         db.disconnect()
 
-    # Not ready for using
     def deleter(self):
         db = database.DataBase()
         db.connect('purchases')
-        db.db_command('DELETE FROM purchases WHERE item = "{}"'.format(self.item))
+        for i in self.names:
+            # db.db_command('DELETE FROM purchases WHERE "{}" AND "{}" IN item AND debtor_id'.format(self.item, i))
+            db.db_command('DELETE FROM purchases WHERE item = "{}" AND debtor_id = "{}"'.format(self.item, i))
         db.disconnect()
 
 
-@bot.message_handler(commands=['start', 'help'])
+@bot.message_handler(commands=['start'])
 def start(message):
+    bookkeeper = Bookkeeper()
+    bookkeeper.user_id = message.chat.id
+
+    bookkeeper.finder()
+
     bot.send_message(message.chat.id, Bookkeeper.send_message('start'))
+    bot.send_message(message.chat.id, bookkeeper.people)
+
+
+@bot.message_handler(commands=['help'])
+def help(message):
+    bot.send_message(message.chat.id, Bookkeeper.send_message('help'))
 
 
 @bot.message_handler(commands=['test'])
@@ -148,6 +173,7 @@ def add_purchase(message):
 
     bookkeeper.user_id = message.chat.id
     bookkeeper.is_register()
+
     bookkeeper.item = string[1]
     bookkeeper.price = string[2]
 
@@ -170,9 +196,7 @@ def find(message):
 
     bookkeeper.finder()
 
-    string = 'Вот те список пацанов с номерами:\n'
-    for i in bookkeeper.db_feedback:
-        string += '• ' + i[0] + ' - ' + i[1] + '\n'
+    string = 'Вот те список пацанов с номерами:\n' + bookkeeper.people
 
     bot.send_message(message.chat.id, string)
 
@@ -184,7 +208,17 @@ def delete(message):
 
     bookkeeper = Bookkeeper()
 
+    bookkeeper.user_id = message.chat.id
+    bookkeeper.is_register()
+
     bookkeeper.item = string[1]
+
+    try:
+        user_name = string[2]
+        bookkeeper.find_id(user_name)
+
+    except IndexError:
+        bookkeeper.other_users()
 
     bookkeeper.deleter()
     bot.send_message(message.chat.id, 'Закончено')
