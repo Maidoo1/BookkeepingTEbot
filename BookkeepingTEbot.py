@@ -66,7 +66,7 @@ class Bookkeeper:
             random_num = str(randint(0, len(answer)-1))
 
             [bot.send_message(i, answer[random_num].format(
-                self.user_name, self.item, self.price, self.debt))for i in self.names]
+                self.user_name, self.item, self.price, self.debt)) for i in self.names]
 
             [bot.send_message(i, Bookkeeper.send_message('table').format(
                 self.user_name, self.item, self.price, self.debt, self.phone)) for i in self.names]
@@ -144,20 +144,18 @@ def start(message):
 
     bookkeeper.finder()
 
-    bot.send_message(message.chat.id, Bookkeeper.send_message('start'))
-    bot.send_message(message.chat.id, bookkeeper.people)
+    bot.send_message(message.chat.id, Bookkeeper.send_message('start'), parse_mode='HTML')
+    bot.send_message(message.chat.id, bookkeeper.people, parse_mode='HTML')
 
 
 @bot.message_handler(commands=['help'])
 def help(message):
-    bot.send_message(message.chat.id, Bookkeeper.send_message('help'))
+    bot.send_message(message.chat.id, Bookkeeper.send_message('help'), parse_mode='HTML')
 
 
 @bot.message_handler(commands=['test'])
 def test(message):
-    bookkeeper = Bookkeeper()
-    bookkeeper.user_id = message.chat.id
-    bookkeeper.other_users()
+    bot.send_message(message.chat.id, '<b>test</b>', parse_mode='HTML')
 
 
 # Команда для ввода имени и номера телефона, привязанного к карте
@@ -168,7 +166,7 @@ def register(message):
     bookkeeper = Bookkeeper()
 
     bookkeeper.user_id = message.chat.id
-    bookkeeper.user_name = string[1]
+    bookkeeper.user_name = string[1].capitalize()
     bookkeeper.phone = string[2]
 
     bookkeeper.register()
@@ -185,11 +183,11 @@ def add_purchase(message):
     bookkeeper.user_id = message.chat.id
     bookkeeper.is_register()
 
-    bookkeeper.item = string[1]
+    bookkeeper.item = string[1].capitalize()
     bookkeeper.price = string[2]
 
     try:
-        user_name = string[3]
+        user_name = string[3].capitalize()
         bookkeeper.find_id(user_name)
 
     except IndexError:
@@ -209,10 +207,10 @@ def find(message):
 
     string = 'Вот те список пацанов с номерами:\n' + bookkeeper.people
 
-    bot.send_message(message.chat.id, string)
+    bot.send_message(message.chat.id, string, parse_mode='HTML')
 
 
-# Тестовая команда для удаления покупок из БД
+# Команда для удаления покупок из БД
 @bot.message_handler(commands=['delete', 'прощаю'])
 def delete(message):
     string = str(message.text).split()
@@ -222,10 +220,10 @@ def delete(message):
     bookkeeper.user_id = message.chat.id
     bookkeeper.is_register()
 
-    bookkeeper.item = string[1]
+    bookkeeper.item = string[1].capitalize()
 
     try:
-        user_name = string[2]
+        user_name = string[2].capitalize()
         bookkeeper.find_id(user_name)
 
     except IndexError:
@@ -242,7 +240,7 @@ def debts(message):
 
     bookkeeper.debts()
 
-    bot.send_message(message.chat.id, bookkeeper.debt_string)
+    bot.send_message(message.chat.id, bookkeeper.debt_string, parse_mode='HTML')
 
 
 if __name__ == '__main__':
