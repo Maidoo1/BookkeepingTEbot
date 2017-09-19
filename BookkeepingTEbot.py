@@ -38,6 +38,7 @@ class Bookkeeper:
         self.debt = None
         self.db_feedback = None
         self.people = ''
+        self.debt_string = ''
 
     @staticmethod
     def register_next_step(message, text, next_func):
@@ -113,7 +114,7 @@ class Bookkeeper:
 
         self.db_feedback = [i for i in db.feedback]
         for i in self.db_feedback:
-            self.people += '• ' + i[0] + ' - ' + i[1] + '\n'
+            self.people += '• {} - {}\n'.format(i[0], i[1])
 
         db.disconnect()
 
@@ -121,8 +122,18 @@ class Bookkeeper:
         db = database.DataBase()
         db.connect('purchases')
         for i in self.names:
-            # db.db_command('DELETE FROM purchases WHERE "{}" AND "{}" IN item AND debtor_id'.format(self.item, i))
             db.db_command('DELETE FROM purchases WHERE item = "{}" AND debtor_id = "{}"'.format(self.item, i))
+        db.disconnect()
+
+    def debts(self):
+        db = database.DataBase()
+        db.connect('purchases')
+        db.db_command('SELECT name, item, debt FROM purchases WHERE debtor_id LIKE "{}"'.format(self.user_id))
+        self.db_feedback = [i for i in db.feedback]
+
+        for i in self.db_feedback:
+            self.debt_string += 'Имя: {}\nПокупка: {}\nТы должен: {} рублеков\n\n'.format(i[0], i[1], i[2])
+
         db.disconnect()
 
 
@@ -222,6 +233,16 @@ def delete(message):
 
     bookkeeper.deleter()
     bot.send_message(message.chat.id, 'Закончено')
+
+
+@bot.message_handler(commands=['debts', 'долги'])
+def debts(message):
+    bookkeeper = Bookkeeper()
+    bookkeeper.user_id = message.chat.id
+
+    bookkeeper.debts()
+
+    bot.send_message(message.chat.id, bookkeeper.debt_string)
 
 
 if __name__ == '__main__':
